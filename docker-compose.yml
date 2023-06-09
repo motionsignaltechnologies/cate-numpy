@@ -1,0 +1,27 @@
+#
+# Author: Kit Chambers
+# Contact: kit.chambers@motionsignaltechnologies.com
+#
+# Motion Signal Technologies Ltd.
+# All rights reserved
+#
+# The contents of this file are considered proprietary and usage or
+# reproduction without prior authorization is strictly prohibited.
+#
+
+version: "3.3"
+
+
+
+services:
+
+  dev:
+    image: motionsignaltechnologies/cate-numpy:latest
+ 
+    volumes:
+      - ./:/src/
+      
+    working_dir: /src/
+  
+    entrypoint: /bin/bash
+    
