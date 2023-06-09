@@ -57,3 +57,5 @@ test-data.txt
 build-dist-notes.rst
 
 *.egg-info/
+Dockerfile
+docker-compose.yml
