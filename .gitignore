@@ -53,3 +53,7 @@ Thumbs.db
 .pydevproject
 .settings
 test-data.txt
+
+build-dist-notes.rst
+
+*.egg-info/
