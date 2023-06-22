@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "catenp"
-version = "0.0.7"
+version = "0.0.9"
 authors = [
-  { name="Motion Signal Technologies", email="info@motionsignaltechnologies.com" },
+  { name="Motion Signal Technologies", email="kit.chambers@motionsignaltechnologies.com" },
 ]
 description = "Python client for extracting data from CATE archives to numpy arrays"
-readme = "README.rst"
+readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
