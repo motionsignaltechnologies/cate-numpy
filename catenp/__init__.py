@@ -25,7 +25,7 @@ USAGE
 
    from catenp import Authenticate,DatabaseInfo,GetData
 
-   # Authenitcate to the server
+   # Authenticate to the server
    tk = Authenticate(serverAddress,serverPort,cateUserName,catePassword)
    
    # Optional get server info
