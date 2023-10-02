@@ -115,7 +115,51 @@ def DatabaseInfo(cateServer,cateServerPort,username,detail=False):
     
     if resp.status_code!=200: raise Exception( "ERROR in CATE login message: "+resp.content.decode() )
     return json.loads(resp.content)
+
+
+def DatabaseCoverage(cateServer,cateServerPort,username,tmin,tmax,cmin,cmax,
+                     detail=False):
+    '''
+    Get database coverage information from the server with a time and channel range Use detail=True to provide 
+     a comprehensive list the default is to show main data chunks (typically 1hr)
+     
+    @param cateServer: cate server address
+    @type cateServer: str
+
+    @param cateServer: cate server port
+    @type cateServer: int
+  
+    @param username: cate server user name
+    @type username: str
+
+    @param tmin,tmax: start stop time as isoformat time string 
+    @type tmin,tmax: str
+
+    @param cmin,cmax: start stop channels 
+    @type cmin,cmax: integer
+     
+    '''
     
+    global CATE_Session_Tokens
+    if (cateServer,cateServerPort,username) not in CATE_Session_Tokens:
+        raise Exception( "ERROR could not find authentication token for : "+str( (cateServer,cateServerPort,username) ) )
+    sessionToken=CATE_Session_Tokens[(cateServer,cateServerPort,username)]
+    
+    
+    resp=requests.get("http://"+cateServer+":"+str(cateServerPort)+"/query_data_segments", 
+                       headers={"Authorization": "Bearer "+sessionToken},
+                       params={"detail": detail,
+                               "tmin": tmin,
+                               "tmax": tmax,
+                               "cmin": cmin,
+                               "cmax": cmax,                               
+                               }
+                       )   
+    
+    if resp.status_code!=200: raise Exception( "ERROR in CATE login message: "+resp.content.decode() )
+    return json.loads(resp.content)
+
+
 def GetData(cateServer,cateServerPort,username,
             tstart,tstop,
             cstart,cstop
