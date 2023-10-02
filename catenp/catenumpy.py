@@ -293,6 +293,25 @@ def Example():
                 print("")
 
 
+    print("\n*********************\nDatabase Coverage")
+    cov = DatabaseCoverage(serverAddress,serverPort,cateUserName,
+                            "2022-09-07T08:30:00+00:00",
+                            "2022-09-07T09:30:00+00:00",
+                            0,4000
+                            
+                            )
+    print("Info: ")
+    for xx in cov["query"]: 
+        print("\n")
+        for kk in xx:
+            if kk!="row_series_info": 
+                print(kk,":",xx[kk])
+            else:
+                print("row_series_info:")
+                for rr in xx["row_series_info"]:
+                    print(rr["min_time"],rr["max_time"],rr["min_channel"],rr["max_channel"],rr["data_url"])
+
+
     # Get some data
     print("\n*********************\nGetting Data:")
     print("Interval: ")
@@ -302,7 +321,7 @@ def Example():
     print("   cstop=",cstop) 
     
     arr=GetData(serverAddress,serverPort,cateUserName,tstart,tstop,cstart,cstop)
-
+    
     print("Got data:")
     print("  arr.shape=",arr.shape)
     print("  arr.dtype=",arr.dtype)
