@@ -211,6 +211,9 @@ def GetData(cateServer,cateServerPort,username,
     if resp.status_code!=200: raise Exception( "ERROR in CATE from CATE server: "+resp.content.decode() )
     rr=json.loads(resp.content)
     if len(rr)==0: raise ExceptionCATENPNoData("No data available for request")
+    if "message" in rr:
+        if rr["message"]=="No data found for requested interval":
+            raise ExceptionCATENPNoData("No data available for request")
     
 
     # Make the output data array
