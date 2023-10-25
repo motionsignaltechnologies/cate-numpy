@@ -217,13 +217,13 @@ def GetData(cateServer,cateServerPort,username,
     
 
     # Make the output data array
-    start_row=min([xx["output_start_row"] for xx in rr])
+    #start_row=min([xx["output_start_row"] for xx in rr])
     stop_row=max([xx["output_stop_row"] for xx in rr])
-    nRow=stop_row-start_row+1
+    nRow=stop_row+1
     
-    start_col=min([xx["output_start_column"] for xx in rr])
+    #start_col=min([xx["output_start_column"] for xx in rr])
     stop_col=max([xx["output_stop_column"] for xx in rr])
-    nCol=stop_col-start_col+1
+    nCol=stop_col+1
     dataType=rr[0]["dtype"]
     dataArray = np.zeros([nRow,nCol],dtype=dataType)
     #print("Output data shape=",dataArray.shape)
@@ -245,6 +245,7 @@ def GetData(cateServer,cateServerPort,username,
                    xx["input_stop_row"]-xx["input_start_row"]+1,
                    xx["input_stop_column"]-xx["input_start_column"]+1
                    )
+
         dataArray[ xx["output_start_row"]:xx["output_stop_row"]+1, 
                    xx["output_start_column"]:xx["output_stop_column"]+1 
                  ] = arr
