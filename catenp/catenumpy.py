@@ -116,7 +116,6 @@ def DatabaseInfo(cateServer,cateServerPort,username,detail=False):
     if resp.status_code!=200: raise Exception( "ERROR in CATE login message: "+resp.content.decode() )
     return json.loads(resp.content)
 
-
 def DatabaseCoverage(cateServer,cateServerPort,username,tmin,tmax,cmin,cmax,
                      detail=False):
     '''
@@ -158,7 +157,6 @@ def DatabaseCoverage(cateServer,cateServerPort,username,tmin,tmax,cmin,cmax,
     
     if resp.status_code!=200: raise Exception( "ERROR in CATE login message: "+resp.content.decode() )
     return json.loads(resp.content)
-
 
 def GetData(cateServer,cateServerPort,username,
             tstart,tstop,

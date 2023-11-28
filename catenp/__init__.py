@@ -46,6 +46,6 @@ USAGE
 
 '''
 
-from .catenumpy  import Authenticate,DatabaseInfo,GetData
+from .catenumpy  import Authenticate,DatabaseInfo,GetData,DatabaseCoverage
 
 
