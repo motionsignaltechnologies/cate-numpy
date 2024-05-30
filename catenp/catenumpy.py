@@ -23,12 +23,19 @@ USAGE
 
 ..
 
-   from catenp import Authenticate,DatabaseInfo,GetData
+   from catenp import Authenticate,ArchiveInfo,DatabaseInfo,GetData
 
-   # Authenitcate to the server
+   # Authenticate to the server
    tk = Authenticate(serverAddress,serverPort,cateUserName,catePassword)
    
-   # Optional get server info
+   
+   # Get basic archive infor like channel raneg and sample rate
+   info = ArchiveInfo(serverAddress,serverPort,cateUserName)
+   print("Info: ")
+   for kk in info: print(kk,":",info[kk])
+   
+   
+   # Get database info and broad archive coverage
    info = DatabaseInfo(serverAddress,serverPort,cateUserName)
    print("Info: ")
    for kk in info: 
@@ -39,11 +46,28 @@ USAGE
          for xx in info[kk]:
              for ll in xx: print("    ",ll,":",xx[ll]) 
              print("")
-   
-   
-   # Exract some data    
-   arr=GetData(serverAddress,serverPort,cateUserName,tstart,tstop,cstart,cstop)
 
+
+   # Get detailed database coverage in a time and channel range 
+   cov = DatabaseCoverage(serverAddress,serverPort,cateUserName,
+                            "2024-05-01T08:30:00+00:00",
+                            "2024-05-01T09:30:00+00:00",
+                            0,16000
+                            )
+   print("Info: ")
+   for xx in cov["query"]: 
+        print("\n")
+        for kk in xx:
+            if kk!="row_series_info": 
+                print(kk,":",xx[kk])
+            else:
+                print("row_series_info:")
+                for rr in xx["row_series_info"]:
+                    print(rr["min_time"],rr["max_time"],rr["min_channel"],rr["max_channel"],rr["data_url"])
+                    
+                    
+   # Extract some data for a time and channel range  
+   arr=GetData(serverAddress,serverPort,cateUserName,tstart,tstop,cstart,cstop)
 
 '''
 
@@ -58,11 +82,16 @@ CATE_Session_Tokens={}
 Session token for accessing the CATE server
 '''
 
+CATE_Parameters={}
+'''
+Archive parameters
+'''
+
+
 class ExceptionCATENPNoData(Exception):
     '''
     Exception classs for absence of data
     '''
-
 
 def Authenticate(cateServer,cateServerPort,username,password):
     '''
@@ -115,6 +144,32 @@ def DatabaseInfo(cateServer,cateServerPort,username,detail=False):
     
     if resp.status_code!=200: raise Exception( "ERROR in CATE login message: "+resp.content.decode() )
     return json.loads(resp.content)
+
+def ArchiveInfo(cateServer,cateServerPort,username):
+    '''
+    Returns archive info including version, and sample rate etc.
+    '''
+    
+    if (cateServer,cateServerPort,username) in CATE_Parameters:
+        return 
+        
+        if "sample_rate" in CATE_Parameters[(cateServer,cateServerPort,username)]:
+            return CATE_Parameters[(cateServer,cateServerPort,username)]
+    
+    global CATE_Session_Tokens
+    if (cateServer,cateServerPort,username) not in CATE_Session_Tokens:
+        raise Exception( "ERROR could not find authentication token for : "+str( (cateServer,cateServerPort,username) ) )
+    sessionToken=CATE_Session_Tokens[(cateServer,cateServerPort,username)]
+    
+    
+    resp=requests.get("http://"+cateServer+":"+str(cateServerPort)+"/archive_info", 
+                       headers={"Authorization": "Bearer "+sessionToken},
+                       )   
+    
+    if resp.status_code!=200: raise Exception( "ERROR in CATE login message: "+resp.content.decode() )
+    CATE_Parameters[(cateServer,cateServerPort,username)] = json.loads(resp.content)
+
+    return CATE_Parameters[(cateServer,cateServerPort,username)]
 
 def DatabaseCoverage(cateServer,cateServerPort,username,tmin,tmax,cmin,cmax,
                      detail=False):
@@ -250,7 +305,6 @@ def GetData(cateServer,cateServerPort,username,
 
     return dataArray
 
-
 def Example():
     '''
     Simple test / example functionality
@@ -282,6 +336,12 @@ def Example():
     tk = Authenticate(serverAddress,serverPort,cateUserName,catePassword)
     print("Got session token: ",tk)
 
+    print("\n*********************\nArchive info")
+    info = ArchiveInfo(serverAddress,serverPort,cateUserName)
+    print("Info: ")
+    for kk in info:
+        print(kk,":",info[kk])
+
     print("\n*********************\nDatabase info")
     info = DatabaseInfo(serverAddress,serverPort,cateUserName)
     print("Info: ")
@@ -293,14 +353,13 @@ def Example():
             for xx in info[kk]:
                 for ll in xx: print("    ",ll,":",xx[ll]) 
                 print("")
-
-
+    
+    
     print("\n*********************\nDatabase Coverage")
     cov = DatabaseCoverage(serverAddress,serverPort,cateUserName,
-                            "2022-09-07T08:30:00+00:00",
-                            "2022-09-07T09:30:00+00:00",
-                            0,4000
-                            
+                            "2024-05-01T08:30:00+00:00",
+                            "2024-05-01T09:30:00+00:00",
+                            0,16000
                             )
     print("Info: ")
     for xx in cov["query"]: 
@@ -312,8 +371,8 @@ def Example():
                 print("row_series_info:")
                 for rr in xx["row_series_info"]:
                     print(rr["min_time"],rr["max_time"],rr["min_channel"],rr["max_channel"],rr["data_url"])
-
-
+    
+    
     # Get some data
     print("\n*********************\nGetting Data:")
     print("Interval: ")
