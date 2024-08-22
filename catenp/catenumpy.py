@@ -305,6 +305,119 @@ def GetData(cateServer,cateServerPort,username,
 
     return dataArray
 
+def RequestUploads(cateServer,cateServerPort,username,
+                   segmentList,
+                   timeOutCloud=180.,
+                   timeOutCloudToOnsite=120.,
+                   verbose=False,
+                   check_for_existing_segments=True,
+                   **kwargs):
+    '''
+    Requests upload data segments from an upstream server
+    
+    @param cateServer: address for the cate server
+    @type cateServer: string
+
+    @param cateServerPort: port for the CATE server
+    @type cateServerPort: integer
+
+    @param username: user name for server (if login required)
+    @type username: string
+    
+    @param segmentList: List of segments to check for and upload if nec. (tmin:str , tmax:str , cmin:int , cmax:int)
+    @type segmentList: []
+
+    @param timeOutCloud: time out for requests to the cloud server (should be >timeOutCloudToOnsite)
+    @type timeOutCloud: float
+
+    @param timeOutCloudToOnsite: time out for requests to the onsite server from cloud 
+    @type timeOutCloudToOnsite: float
+    
+    @param check_for_existing_segments: check the cloud server fo data and only request missing segments from onsite
+    @type check_for_existing_segments: bool
+    
+    '''
+   
+    global CATE_Session_Tokens
+    if (cateServer,cateServerPort,username) not in CATE_Session_Tokens:
+        raise Exception( "ERROR could not find authentication token for : "+str( (cateServer,cateServerPort,username) ) )
+    sessionToken=CATE_Session_Tokens[(cateServer,cateServerPort,username)]
+    
+    endPoint="http://"+str(cateServer)+":"+str(cateServerPort)+"/request_mpart_upload_from_upstream"
+    
+    if verbose==True:
+        print("Endpoint: ",endPoint," with timeout=",timeOutCloudToOnsite,flush=True)
+    
+    # Try the multipart request 
+    resp=requests.post(endPoint, 
+                       headers={"Authorization": "Bearer "+sessionToken},
+                       data=json.dumps({"data":segmentList}),
+                       params={
+                           "timeout": timeOutCloudToOnsite,
+                           "checkForExistingSegments": check_for_existing_segments
+                           },
+                       timeout=timeOutCloud
+                       ) 
+
+    if resp.status_code==404:
+        if verbose==True: print("WARNING - The initial upload request failed with 404 error. This could be because the CATE server is old. Retrying as separate requests with a legacy endpoint",flush=True) 
+        
+        for xx in segmentList:
+    
+            pp={ 
+                "tmin": str(xx[0]),
+                "tmax": str(xx[1]),
+                "cmin": int(xx[2]),
+                "cmax": int(xx[3]),
+                "checkForExistingSegments": True,
+                "timeout":  timeOutCloudToOnsite                         
+               }
+    
+            if verbose==True: print("\nRequesting: ",pp," with timeout=",timeOutCloud,flush=True)
+            
+            endPoint="http://"+str(cateServer)+":"+str(cateServerPort)+"/request_upload_from_upstream"
+            resp=requests.get(endPoint, 
+                           headers={"Authorization": "Bearer "+sessionToken},
+                           params=pp,
+                           timeout=timeOutCloud
+                           )   
+    
+            if resp.status_code!=200: 
+                raise Exception( "ERROR in CATE request_upload_from_upstream message: "+resp.content.decode() )
+    elif resp.status_code!=200: 
+        raise Exception("ERROR in CATE request_mpart_upload_from_upstream message: "+resp.content.decode() )
+
+def CheckPointsCoverage(cateServer,cateServerPort,username,points):
+    '''
+    Queries the server to check if a list of points are covered
+    
+    @param cateServer: address for the cate server
+    @type cateServer: string
+
+    @param cateServerPort: port for the CATE server
+    @type cateServerPort: integer
+
+    @param username: user name for server (if login required)
+    @type username: string
+    
+    @param points:   List of points to check for and upload if nec. (tmin:str , tmax:str , cmin:int , cmax:int)
+    @type points: 
+    '''
+    
+    global CATE_Session_Tokens
+    if (cateServer,cateServerPort,username) not in CATE_Session_Tokens:
+        raise Exception( "ERROR could not find authentication token for : "+str( (cateServer,cateServerPort,username) ) )
+    sessionToken=CATE_Session_Tokens[(cateServer,cateServerPort,username)]
+    
+    resp = requests.post("http://"+cateServer+":"+cateServerPort+"/check_points_coverage",
+                         headers={"Authorization": "Bearer "+sessionToken},
+                         data=json.dumps({"data": points})
+                         )
+    if resp.status_code!=200:
+        raise Exception("ERROR in CATE check_points_coverage message: "+resp.content.decode() )
+    
+    return json.loads(resp.content)
+    
 def Example():
     '''
     Simple test / example functionality
