@@ -93,23 +93,39 @@ class ExceptionCATENPNoData(Exception):
     Exception classs for absence of data
     '''
 
+def GetServerURL(cateServer,cateServerPort):
+    '''
+    Returns the server URL string
+    '''
+    url=""
+    if cateServer.lower().startswith("http")==True:
+        # Server is provided as and address
+        url=cateServer
+    else:
+        # Server is provided as domain or IP
+        url="http://"+cateServer
+    if cateServerPort!=None: url.rstrip('/')+":"+str(cateServerPort)+'/'
+        
+    return url
+
 def Authenticate(cateServer,cateServerPort,username,password):
     '''
     Returns a session token for the CATE server and saves the result in a module variable
     '''
 
-
-    resp=requests.post("http://"+str(cateServer)+":"+str(cateServerPort)+"/token", 
+    resp=requests.post(GetServerURL(cateServer,cateServerPort).rstrip('/')+"/token", 
                        headers={"accept":"application/json",
                                 "Content-Type": "application/x-www-form-urlencoded"
                                 },
-                       data={"username":str(username),"password":str(password),
-                             "scope":None,"client_id": None,"client_secret":None},
+                       data=json.dumps({"username":str(username),"password":str(password)}),
                        )   
 
     if resp.status_code!=200: raise Exception( "ERROR in CATE login message: "+resp.content.decode() )
 
     global CATE_Session_Tokens
+    
+    
+    
     rr=json.loads(resp.content)
     CATE_Session_Tokens[(cateServer,cateServerPort,username)]=rr["access_token"]
     
@@ -137,7 +153,7 @@ def DatabaseInfo(cateServer,cateServerPort,username,detail=False):
     sessionToken=CATE_Session_Tokens[(cateServer,cateServerPort,username)]
     
     
-    resp=requests.get("http://"+cateServer+":"+str(cateServerPort)+"/archive_db_info", 
+    resp=requests.get(GetServerURL(cateServer,cateServerPort).rstrip('/')+"/archive_db_info", 
                        headers={"Authorization": "Bearer "+sessionToken},
                        params={"detail": detail}
                        )   
@@ -150,11 +166,7 @@ def ArchiveInfo(cateServer,cateServerPort,username):
     Returns archive info including version, and sample rate etc.
     '''
     
-    if (cateServer,cateServerPort,username) in CATE_Parameters:
-        return 
-        
-        if "sample_rate" in CATE_Parameters[(cateServer,cateServerPort,username)]:
-            return CATE_Parameters[(cateServer,cateServerPort,username)]
+    if (cateServer,cateServerPort,username) in CATE_Parameters: return CATE_Parameters[(cateServer,cateServerPort,username)]
     
     global CATE_Session_Tokens
     if (cateServer,cateServerPort,username) not in CATE_Session_Tokens:
@@ -162,7 +174,7 @@ def ArchiveInfo(cateServer,cateServerPort,username):
     sessionToken=CATE_Session_Tokens[(cateServer,cateServerPort,username)]
     
     
-    resp=requests.get("http://"+cateServer+":"+str(cateServerPort)+"/archive_info", 
+    resp=requests.get(GetServerURL(cateServer,cateServerPort).rstrip('/')+"/archive_info", 
                        headers={"Authorization": "Bearer "+sessionToken},
                        )   
     
@@ -171,8 +183,7 @@ def ArchiveInfo(cateServer,cateServerPort,username):
 
     return CATE_Parameters[(cateServer,cateServerPort,username)]
 
-def DatabaseCoverage(cateServer,cateServerPort,username,tmin,tmax,cmin,cmax,
-                     detail=False):
+def DatabaseCoverage(cateServer,cateServerPort,username,tmin,tmax,cmin,cmax):
     '''
     Get database coverage information from the server with a time and channel range Use detail=True to provide 
      a comprehensive list the default is to show main data chunks (typically 1hr)
@@ -200,9 +211,10 @@ def DatabaseCoverage(cateServer,cateServerPort,username,tmin,tmax,cmin,cmax,
     sessionToken=CATE_Session_Tokens[(cateServer,cateServerPort,username)]
     
     
-    resp=requests.get("http://"+cateServer+":"+str(cateServerPort)+"/query_data_segments", 
+    resp=requests.get(GetServerURL(cateServer,cateServerPort).rstrip('/')+"/query_data_segments", 
                        headers={"Authorization": "Bearer "+sessionToken},
-                       params={"detail": detail,
+                       params={
+                                #"detail": detail,
                                "tmin": tmin,
                                "tmax": tmax,
                                "cmin": cmin,
@@ -250,7 +262,7 @@ def GetData(cateServer,cateServerPort,username,
     
     
     # Intitial query
-    resp=requests.get("http://"+cateServer+":"+str(cateServerPort)+"/get_data_segments", 
+    resp=requests.get(GetServerURL(cateServer,cateServerPort).rstrip('/')+"/get_data_segments", 
                        headers={"Authorization": "Bearer "+sessionToken},
                        params={
                             "tmin":tstart,
@@ -283,12 +295,25 @@ def GetData(cateServer,cateServerPort,username,
 
     # Download the data segments and place into output
     for xx in rr:
-    
-        # Call with data_key to download data
-        dresp=requests.get("http://"+cateServer+":"+str(cateServerPort)+"/get_data",
+
+        # Download the data
+        if "download_url" in xx:
+            # Server provides a download URL
+            
+            if "$SERVER_ADDRESS$" in xx["download_url"]:
+                # URL on the server
+                url=xx["download_url"].replace("$SERVER_ADDRESS$",str(cateServer)).replace("$SERVER_PORT$",str(cateServerPort))
+                dresp=requests.get(url,headers={"Authorization": "Bearer "+sessionToken},)
+            else:
+                # Simple signed URL
+                dresp=requests.get(xx["download_url"]) 
+        else:
+            # Legacy sever user /get_data
+            dresp=requests.get(GetServerURL(cateServer,cateServerPort).rstrip('/')+"/get_data",
                            headers={"Authorization": "Bearer "+sessionToken},
                            params={ "data_key": xx["data_key"] }
-                          )   
+                          ) 
+    
         if dresp.status_code!=200: 
             raise Exception( "ERROR in CATE data retrieval for data segment error code="+dresp.content.decode() )   
         
@@ -343,7 +368,7 @@ def RequestUploads(cateServer,cateServerPort,username,
         raise Exception( "ERROR could not find authentication token for : "+str( (cateServer,cateServerPort,username) ) )
     sessionToken=CATE_Session_Tokens[(cateServer,cateServerPort,username)]
     
-    endPoint="http://"+str(cateServer)+":"+str(cateServerPort)+"/request_mpart_upload_from_upstream"
+    endPoint=GetServerURL(cateServer,cateServerPort).rstrip('/')+"/request_mpart_upload_from_upstream"
     
     if verbose==True:
         print("Endpoint: ",endPoint," with timeout=",timeOutCloudToOnsite,flush=True)
@@ -375,7 +400,7 @@ def RequestUploads(cateServer,cateServerPort,username,
     
             if verbose==True: print("\nRequesting: ",pp," with timeout=",timeOutCloud,flush=True)
             
-            endPoint="http://"+str(cateServer)+":"+str(cateServerPort)+"/request_upload_from_upstream"
+            endPoint=GetServerURL(cateServer,cateServerPort).rstrip('/')+"/request_upload_from_upstream"
             resp=requests.get(endPoint, 
                            headers={"Authorization": "Bearer "+sessionToken},
                            params=pp,
@@ -400,7 +425,7 @@ def CheckPointsCoverage(cateServer,cateServerPort,username,points):
     @param username: user name for server (if login required)
     @type username: string
     
-    @param points:   List of points to check for and upload if nec. (tmin:str , tmax:str , cmin:int , cmax:int)
+    @param points:   List of points to check are covered nec. (tmin:str , tmax:str , cmin:int , cmax:int)
     @type points: 
     '''
     
@@ -409,7 +434,7 @@ def CheckPointsCoverage(cateServer,cateServerPort,username,points):
         raise Exception( "ERROR could not find authentication token for : "+str( (cateServer,cateServerPort,username) ) )
     sessionToken=CATE_Session_Tokens[(cateServer,cateServerPort,username)]
     
-    resp = requests.post("http://"+cateServer+":"+cateServerPort+"/check_points_coverage",
+    resp = requests.post(GetServerURL(cateServer,cateServerPort).rstrip('/')+"/check_points_coverage",
                          headers={"Authorization": "Bearer "+sessionToken},
                          data=json.dumps({"data": points})
                          )
@@ -437,7 +462,7 @@ def Example():
         tstop = fd.readline().rstrip()                   # Stop of time interval to get
         cstart = int( fd.readline().rstrip() )           # Start of channel interval to gets
         cstop = int( fd.readline().rstrip() )            # End of channel interval to get
-        
+      
         
     print("Got server details:")
     print("   Server=",serverAddress)  
@@ -445,16 +470,16 @@ def Example():
     print("   User=",cateUserName)  
     
     
-    print("\n*********************\nAuthenitcate")
+    print("\n*********************\nAuthenticate")
     tk = Authenticate(serverAddress,serverPort,cateUserName,catePassword)
     print("Got session token: ",tk)
-
+    
     print("\n*********************\nArchive info")
     info = ArchiveInfo(serverAddress,serverPort,cateUserName)
     print("Info: ")
     for kk in info:
         print(kk,":",info[kk])
-
+    
     print("\n*********************\nDatabase info")
     info = DatabaseInfo(serverAddress,serverPort,cateUserName)
     print("Info: ")
@@ -501,7 +526,94 @@ def Example():
     print("  arr.dtype=",arr.dtype)
     print("  range=",np.min(arr),np.max(arr))    
 
+def Example2():
+    '''
+    Simple test / example functionality using a url end point
+    '''
+
+    print("\n*********************\nTest/ Example functionality\n******************\n")
+
+    print("\n*********************\nRead in server data")
+
+    with open("./test-data2.txt") as fd:
+        serverAddress = fd.readline().rstrip()           # CATE Server address (example http://blahbalh.myserver/endppoint/)
+        serverPort=None                                  # Use none for the server port to assume http
+        cateUserName = fd.readline().rstrip()            # User name on the server
+        catePassword = fd.readline().rstrip()            # Password on the server
+        
+        tstart = fd.readline().rstrip()                  # Start of time interval to get
+        tstop = fd.readline().rstrip()                   # Stop of time interval to get
+        cstart = int( fd.readline().rstrip() )           # Start of channel interval to gets
+        cstop = int( fd.readline().rstrip() )            # End of channel interval to get
+      
+        
+    print("Got server details:")
+    print("   Server=",serverAddress)  
+    print("   port=",serverPort)  
+    print("   User=",cateUserName)  
     
+    
+    print("\n*********************\nAuthenticate")
+    tk = Authenticate(serverAddress,serverPort,cateUserName,catePassword)
+    print("Got session token: ",tk)
+    
+    print("\n*********************\nArchive info")
+    info = ArchiveInfo(serverAddress,serverPort,cateUserName)
+    print("Info: ")
+    for kk in info:
+        print(kk,":",info[kk])
+
+    print("\n*********************\nDatabase info")
+    info = DatabaseInfo(serverAddress,serverPort,cateUserName)
+    print("Info: ")
+    for kk in info: 
+        if kk !="segments": 
+            print("  ",kk,":",info[kk])
+        else:
+            print("  segments:")
+            for xx in info[kk]:
+                for ll in xx: print("    ",ll,":",xx[ll]) 
+                print("")
+    
+    
+    print("\n*********************\nDatabase Coverage")
+    cov = DatabaseCoverage(serverAddress,serverPort,cateUserName,
+                            "2023-02-06T17:00:00+00:00",
+                            "2023-02-06T17:30:00+00:00",
+                            0,12000
+                            )
+
+    print("Info: ")
+    for xx in cov["query"]: 
+        print("\n")
+        for kk in xx:
+            if kk!="row_series_info": 
+                print(kk,":",xx[kk])
+            else:
+                print("row_series_info:")
+                for rr in xx["row_series_info"]:
+                    print(rr["min_time"],rr["max_time"],rr["min_channel"],rr["max_channel"],rr["data_url"])
+    
+    
+    # Get some data
+    tstart="2023-02-06T17:00:00+00:00"
+    tstop="2023-02-06T17:00:30+00:00"
+    cstart=5000
+    cstop=6000
+    
+    print("\n*********************\nGetting Data:")
+    print("Interval: ")
+    print("   tstart=",tstart)  
+    print("   tstop=",tstop)  
+    print("   cstart=",cstart) 
+    print("   cstop=",cstop) 
+    
+    arr=GetData(serverAddress,serverPort,cateUserName,tstart,tstop,cstart,cstop)
+    
+    print("Got data:")
+    print("  arr.shape=",arr.shape)
+    print("  arr.dtype=",arr.dtype)
+    print("  range=",np.min(arr),np.max(arr))    
 
 if __name__ == '__main__':
     
