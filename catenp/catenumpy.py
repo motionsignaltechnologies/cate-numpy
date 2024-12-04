@@ -117,7 +117,7 @@ def Authenticate(cateServer,cateServerPort,username,password):
                        headers={"accept":"application/json",
                                 "Content-Type": "application/x-www-form-urlencoded"
                                 },
-                       data=json.dumps({"username":str(username),"password":str(password)}),
+                       data={"username":str(username),"password":str(password)},
                        )   
 
     if resp.status_code!=200: raise Exception( "ERROR in CATE login message: "+resp.content.decode() )
