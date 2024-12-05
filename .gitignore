@@ -52,8 +52,7 @@ Thumbs.db
 .project
 .pydevproject
 .settings
-test-data.txt
-test-data2.txt
+test-*.txt
 
 build-dist-notes.rst
 

@@ -104,7 +104,8 @@ def GetServerURL(cateServer,cateServerPort):
     else:
         # Server is provided as domain or IP
         url="http://"+cateServer
-    if cateServerPort!=None: url.rstrip('/')+":"+str(cateServerPort)+'/'
+    
+    if cateServerPort!=None: url=url.rstrip('/')+":"+str(cateServerPort)+'/'
         
     return url
 
@@ -117,14 +118,11 @@ def Authenticate(cateServer,cateServerPort,username,password):
                        headers={"accept":"application/json",
                                 "Content-Type": "application/x-www-form-urlencoded"
                                 },
-                       data={"username":str(username),"password":str(password)},
+                       data={"username":str(username),"password":str(password)}
                        )   
-
     if resp.status_code!=200: raise Exception( "ERROR in CATE login message: "+resp.content.decode() )
 
     global CATE_Session_Tokens
-    
-    
     
     rr=json.loads(resp.content)
     CATE_Session_Tokens[(cateServer,cateServerPort,username)]=rr["access_token"]
@@ -209,8 +207,7 @@ def DatabaseCoverage(cateServer,cateServerPort,username,tmin,tmax,cmin,cmax):
     if (cateServer,cateServerPort,username) not in CATE_Session_Tokens:
         raise Exception( "ERROR could not find authentication token for : "+str( (cateServer,cateServerPort,username) ) )
     sessionToken=CATE_Session_Tokens[(cateServer,cateServerPort,username)]
-    
-    
+
     resp=requests.get(GetServerURL(cateServer,cateServerPort).rstrip('/')+"/query_data_segments", 
                        headers={"Authorization": "Bearer "+sessionToken},
                        params={
@@ -222,7 +219,7 @@ def DatabaseCoverage(cateServer,cateServerPort,username,tmin,tmax,cmin,cmax):
                                }
                        )   
     
-    if resp.status_code!=200: raise Exception( "ERROR in CATE login message: "+resp.content.decode() )
+    if resp.status_code!=200: raise Exception( "ERROR in CATE query_data_segments message: "+resp.content.decode() )
     return json.loads(resp.content)
 
 def GetData(cateServer,cateServerPort,username,
@@ -468,7 +465,7 @@ def Example():
     print("   Server=",serverAddress)  
     print("   port=",serverPort)  
     print("   User=",cateUserName)  
-    
+    print("   URL=",GetServerURL(serverAddress,serverPort))
     
     print("\n*********************\nAuthenticate")
     tk = Authenticate(serverAddress,serverPort,cateUserName,catePassword)
@@ -495,9 +492,8 @@ def Example():
     
     print("\n*********************\nDatabase Coverage")
     cov = DatabaseCoverage(serverAddress,serverPort,cateUserName,
-                            "2024-05-01T08:30:00+00:00",
-                            "2024-05-01T09:30:00+00:00",
-                            0,16000
+                            tstart,tstop,
+                            cstart,cstop
                             )
     print("Info: ")
     for xx in cov["query"]: 
@@ -531,7 +527,7 @@ def Example2():
     Simple test / example functionality using a url end point
     '''
 
-    print("\n*********************\nTest/ Example functionality\n******************\n")
+    print("\n*********************\nTest/ Example functionality 2\n******************\n")
 
     print("\n*********************\nRead in server data")
 
@@ -541,83 +537,87 @@ def Example2():
         cateUserName = fd.readline().rstrip()            # User name on the server
         catePassword = fd.readline().rstrip()            # Password on the server
         
-        tstart = fd.readline().rstrip()                  # Start of time interval to get
-        tstop = fd.readline().rstrip()                   # Stop of time interval to get
-        cstart = int( fd.readline().rstrip() )           # Start of channel interval to gets
-        cstop = int( fd.readline().rstrip() )            # End of channel interval to get
-      
+        # tstart = fd.readline().rstrip()                  # Start of time interval to get
+        # tstop = fd.readline().rstrip()                   # Stop of time interval to get
+        # cstart = int( fd.readline().rstrip() )           # Start of channel interval to gets
+        # cstop = int( fd.readline().rstrip() )            # End of channel interval to get
+        #
+
         
     print("Got server details:")
     print("   Server=",serverAddress)  
     print("   port=",serverPort)  
     print("   User=",cateUserName)  
+    print("   URL=",GetServerURL(serverAddress,serverPort))
     
     
     print("\n*********************\nAuthenticate")
     tk = Authenticate(serverAddress,serverPort,cateUserName,catePassword)
     print("Got session token: ",tk)
     
-    print("\n*********************\nArchive info")
-    info = ArchiveInfo(serverAddress,serverPort,cateUserName)
-    print("Info: ")
-    for kk in info:
-        print(kk,":",info[kk])
-
-    print("\n*********************\nDatabase info")
-    info = DatabaseInfo(serverAddress,serverPort,cateUserName)
-    print("Info: ")
-    for kk in info: 
-        if kk !="segments": 
-            print("  ",kk,":",info[kk])
-        else:
-            print("  segments:")
-            for xx in info[kk]:
-                for ll in xx: print("    ",ll,":",xx[ll]) 
-                print("")
-    
-    
-    print("\n*********************\nDatabase Coverage")
-    cov = DatabaseCoverage(serverAddress,serverPort,cateUserName,
-                            "2023-02-06T17:00:00+00:00",
-                            "2023-02-06T17:30:00+00:00",
-                            0,12000
-                            )
-
-    print("Info: ")
-    for xx in cov["query"]: 
-        print("\n")
-        for kk in xx:
-            if kk!="row_series_info": 
-                print(kk,":",xx[kk])
-            else:
-                print("row_series_info:")
-                for rr in xx["row_series_info"]:
-                    print(rr["min_time"],rr["max_time"],rr["min_channel"],rr["max_channel"],rr["data_url"])
-    
-    
-    # Get some data
-    tstart="2023-02-06T17:00:00+00:00"
-    tstop="2023-02-06T17:00:30+00:00"
-    cstart=5000
-    cstop=6000
-    
-    print("\n*********************\nGetting Data:")
-    print("Interval: ")
-    print("   tstart=",tstart)  
-    print("   tstop=",tstop)  
-    print("   cstart=",cstart) 
-    print("   cstop=",cstop) 
-    
-    arr=GetData(serverAddress,serverPort,cateUserName,tstart,tstop,cstart,cstop)
-    
-    print("Got data:")
-    print("  arr.shape=",arr.shape)
-    print("  arr.dtype=",arr.dtype)
-    print("  range=",np.min(arr),np.max(arr))    
+    # print("\n*********************\nArchive info")
+    # info = ArchiveInfo(serverAddress,serverPort,cateUserName)
+    # print("Info: ")
+    # for kk in info:
+    #     print(kk,":",info[kk])
+    #
+    # print("\n*********************\nDatabase info")
+    # info = DatabaseInfo(serverAddress,serverPort,cateUserName)
+    # print("Info: ")
+    # for kk in info: 
+    #     if kk !="segments": 
+    #         print("  ",kk,":",info[kk])
+    #     else:
+    #         print("  segments:")
+    #         for xx in info[kk]:
+    #             for ll in xx: print("    ",ll,":",xx[ll]) 
+    #             print("")
+    #
+    #
+    # print("\n*********************\nDatabase Coverage")
+    # cov = DatabaseCoverage(serverAddress,serverPort,cateUserName,
+    #                         "2023-02-06T17:00:00+00:00",
+    #                         "2023-02-06T17:30:00+00:00",
+    #                         0,12000
+    #                         )
+    #
+    # print("Info: ")
+    # for xx in cov["query"]: 
+    #     print("\n")
+    #     for kk in xx:
+    #         if kk!="row_series_info": 
+    #             print(kk,":",xx[kk])
+    #         else:
+    #             print("row_series_info:")
+    #             for rr in xx["row_series_info"]:
+    #                 print(rr["min_time"],rr["max_time"],rr["min_channel"],rr["max_channel"],rr["data_url"])
+    #
+    #
+    # # Get some data
+    # tstart="2023-02-06T17:00:00+00:00"
+    # tstop="2023-02-06T17:00:30+00:00"
+    # cstart=5000
+    # cstop=6000
+    #
+    # print("\n*********************\nGetting Data:")
+    # print("Interval: ")
+    # print("   tstart=",tstart)  
+    # print("   tstop=",tstop)  
+    # print("   cstart=",cstart) 
+    # print("   cstop=",cstop) 
+    #
+    # arr=GetData(serverAddress,serverPort,cateUserName,tstart,tstop,cstart,cstop)
+    #
+    # print("Got data:")
+    # print("  arr.shape=",arr.shape)
+    # print("  arr.dtype=",arr.dtype)
+    # print("  range=",np.min(arr),np.max(arr))    
 
 if __name__ == '__main__':
     
     
     Example()
+    
+    Example2()
     
     
