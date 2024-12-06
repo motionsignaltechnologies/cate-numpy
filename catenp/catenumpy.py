@@ -422,8 +422,8 @@ def CheckPointsCoverage(cateServer,cateServerPort,username,points):
     @param username: user name for server (if login required)
     @type username: string
     
-    @param points:   List of points to check are covered nec. (tmin:str , tmax:str , cmin:int , cmax:int)
-    @type points: 
+    @param points:   List of points to check are covered
+    @type points: [{time:str , channel:int}]   
     '''
     
     global CATE_Session_Tokens
@@ -431,6 +431,7 @@ def CheckPointsCoverage(cateServer,cateServerPort,username,points):
         raise Exception( "ERROR could not find authentication token for : "+str( (cateServer,cateServerPort,username) ) )
     sessionToken=CATE_Session_Tokens[(cateServer,cateServerPort,username)]
     
+
     resp = requests.post(GetServerURL(cateServer,cateServerPort).rstrip('/')+"/check_points_coverage",
                          headers={"Authorization": "Bearer "+sessionToken},
                          data=json.dumps({"data": points})
@@ -537,11 +538,13 @@ def Example2():
         cateUserName = fd.readline().rstrip()            # User name on the server
         catePassword = fd.readline().rstrip()            # Password on the server
         
-        # tstart = fd.readline().rstrip()                  # Start of time interval to get
-        # tstop = fd.readline().rstrip()                   # Stop of time interval to get
-        # cstart = int( fd.readline().rstrip() )           # Start of channel interval to gets
-        # cstop = int( fd.readline().rstrip() )            # End of channel interval to get
-        #
+        tstart = fd.readline().rstrip()                  # Start of time interval to get
+        tstop = fd.readline().rstrip()                   # Stop of time interval to get
+        cstart = int( fd.readline().rstrip() )           # Start of channel interval to gets
+        cstop = int( fd.readline().rstrip() )            # End of channel interval to get
+        
+        tp1= fd.readline().rstrip()                     # Time for points coverage check
+        cp1=int( fd.readline().rstrip() )                # Channel for points coverage check
 
         
     print("Got server details:")
@@ -555,63 +558,75 @@ def Example2():
     tk = Authenticate(serverAddress,serverPort,cateUserName,catePassword)
     print("Got session token: ",tk)
     
-    # print("\n*********************\nArchive info")
-    # info = ArchiveInfo(serverAddress,serverPort,cateUserName)
-    # print("Info: ")
-    # for kk in info:
-    #     print(kk,":",info[kk])
-    #
-    # print("\n*********************\nDatabase info")
-    # info = DatabaseInfo(serverAddress,serverPort,cateUserName)
-    # print("Info: ")
-    # for kk in info: 
-    #     if kk !="segments": 
-    #         print("  ",kk,":",info[kk])
-    #     else:
-    #         print("  segments:")
-    #         for xx in info[kk]:
-    #             for ll in xx: print("    ",ll,":",xx[ll]) 
-    #             print("")
-    #
-    #
-    # print("\n*********************\nDatabase Coverage")
-    # cov = DatabaseCoverage(serverAddress,serverPort,cateUserName,
-    #                         "2023-02-06T17:00:00+00:00",
-    #                         "2023-02-06T17:30:00+00:00",
-    #                         0,12000
-    #                         )
-    #
-    # print("Info: ")
-    # for xx in cov["query"]: 
-    #     print("\n")
-    #     for kk in xx:
-    #         if kk!="row_series_info": 
-    #             print(kk,":",xx[kk])
-    #         else:
-    #             print("row_series_info:")
-    #             for rr in xx["row_series_info"]:
-    #                 print(rr["min_time"],rr["max_time"],rr["min_channel"],rr["max_channel"],rr["data_url"])
-    #
-    #
-    # # Get some data
-    # tstart="2023-02-06T17:00:00+00:00"
-    # tstop="2023-02-06T17:00:30+00:00"
-    # cstart=5000
-    # cstop=6000
-    #
-    # print("\n*********************\nGetting Data:")
-    # print("Interval: ")
-    # print("   tstart=",tstart)  
-    # print("   tstop=",tstop)  
-    # print("   cstart=",cstart) 
-    # print("   cstop=",cstop) 
-    #
-    # arr=GetData(serverAddress,serverPort,cateUserName,tstart,tstop,cstart,cstop)
-    #
-    # print("Got data:")
-    # print("  arr.shape=",arr.shape)
-    # print("  arr.dtype=",arr.dtype)
-    # print("  range=",np.min(arr),np.max(arr))    
+    print("\n*********************\nArchive info")
+    info = ArchiveInfo(serverAddress,serverPort,cateUserName)
+    print("Info: ")
+    for kk in info:
+        print(kk,":",info[kk])
+    
+    print("\n*********************\nDatabase info")
+    info = DatabaseInfo(serverAddress,serverPort,cateUserName)
+    print("Info: ")
+    for kk in info: 
+        if kk !="segments": 
+            print("  ",kk,":",info[kk])
+        else:
+            print("  segments:")
+            for xx in info[kk]:
+                for ll in xx: print("    ",ll,":",xx[ll]) 
+                print("")
+    
+    
+    print("\n*********************\nDatabase Coverage")
+    print("Interval: ")
+    print("   tstart=",tstart)  
+    print("   tstop=",tstop)  
+    print("   cstart=",cstart) 
+    print("   cstop=",cstop) 
+    
+    cov = DatabaseCoverage(serverAddress,serverPort,cateUserName,
+                            tstart,tstop,
+                            cstart,cstop
+                            )
+    
+    print("\nInfo:")
+    for xx in cov["query"]: 
+        
+        for kk in xx:
+            if kk!="row_series_info": 
+                print(kk,":",xx[kk])
+            else:
+                print("row_series_info:")
+                for rr in xx["row_series_info"]:
+                    print(rr["min_time"],rr["max_time"],rr["min_channel"],rr["max_channel"],rr["data_url"])
+        print("\n")
+    
+
+    print("\n*********************\nGetting Data:")
+    print("Interval: ")
+    print("   tstart=",tstart)  
+    print("   tstop=",tstop)  
+    print("   cstart=",cstart) 
+    print("   cstop=",cstop) 
+    
+    arr=GetData(serverAddress,serverPort,cateUserName,tstart,tstop,cstart,cstop)
+    
+    print("Got data:")
+    print("  arr.shape=",arr.shape)
+    print("  arr.dtype=",arr.dtype)
+    print("  range=",np.min(arr),np.max(arr))    
+
+    print("\n*********************\nCheckPointsCoverage:")
+    print("Interval: ")
+    print("   tp1=",tp1)  
+    print("   cp1=",cp1)  
+
+    resp=CheckPointsCoverage(serverAddress,serverPort,cateUserName,
+                             [{"time": tp1,"channel":cp1}]
+                             )
+
+    print("\nresp=",resp)
+
 
 if __name__ == '__main__':
     
