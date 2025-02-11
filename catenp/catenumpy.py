@@ -276,7 +276,8 @@ def GetData(cateServer,cateServerPort,username,
     if "message" in rr:
         if rr["message"]=="No data found for requested interval":
             raise ExceptionCATENPNoData("No data available for request")
-    
+    if "error" in rr:
+        raise Exception('Request error: '+rr["error"])
 
     # Make the output data array
     #start_row=min([xx["output_start_row"] for xx in rr])
